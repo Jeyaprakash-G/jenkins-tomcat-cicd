@@ -1,42 +1,43 @@
 pipeline {
-
     agent {
         label 'jenkins-agent-1'
     }
 
     stages {
-
         stage('Checkout') {
             steps {
-                echo 'Checking out source code from GitHub'
                 checkout scm
             }
         }
 
         stage('Maven Build') {
             steps {
-                echo 'Building Java application using Maven'
-                sh 'mvn clean package'
+                dir('C02AW-Java-Deployment-master') {
+                    sh 'mvn clean package'
+                }
             }
         }
 
         stage('Verify WAR') {
             steps {
-                sh 'ls -lh target/sample.war'
+                dir('C02AW-Java-Deployment-master') {
+                    sh 'ls -lh target/sample.war'
+                }
             }
         }
 
         stage('Deploy to Tomcat') {
             steps {
-                echo 'Deploying application to Tomcat'
-                sh 'cp target/sample.war /opt/tomcat/webapps/sample.war'
+                dir('C02AW-Java-Deployment-master') {
+                    sh 'cp target/sample.war /opt/tomcat/webapps/sample.war'
+                }
             }
         }
 
         stage('Verify Deployment') {
             steps {
-                sh 'sleep 10'
-                sh 'curl -I http://localhost:8080/sample/'
+                sh 'sleep 15'
+                sh 'curl -f http://localhost:8080/sample/'
             }
         }
     }
@@ -45,7 +46,6 @@ pipeline {
         success {
             echo 'BUILD AND DEPLOYMENT SUCCESSFUL!'
         }
-
         failure {
             echo 'BUILD OR DEPLOYMENT FAILED!'
         }
