@@ -4,6 +4,7 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -26,28 +27,58 @@ pipeline {
             }
         }
 
-        stage('Deploy to Tomcat') {
+        stage('Docker Image Build') {
             steps {
                 dir('C02AW-Java-Deployment-master') {
-                    sh 'cp target/sample.war /opt/tomcat/webapps/sample.war'
+                    sh "docker build -t sample-app:${BUILD_NUMBER} ."
                 }
+            }
+        }
+
+        stage('Stop Old Container') {
+            steps {
+                sh 'docker rm -f sample-app || true'
+            }
+        }
+
+        stage('Deploy Docker Container') {
+            steps {
+                sh """
+                    docker run -d \
+                    --name sample-app \
+                    -p 8081:8080 \
+                    sample-app:${BUILD_NUMBER}
+                """
             }
         }
 
         stage('Verify Deployment') {
             steps {
-                sh 'sleep 15'
-                sh 'curl -f http://localhost:8080/sample/'
+                sh '''
+                    for i in {1..10}; do
+                        if curl -fsSL http://localhost:8081/sample/ -o /dev/null; then
+                            echo "Application is healthy!"
+                            exit 0
+                        fi
+
+                        echo "Waiting for application startup..."
+                        sleep 5
+                    done
+
+                    echo "Application health check failed!"
+                    exit 1
+                '''
             }
         }
     }
 
     post {
         success {
-            echo 'BUILD AND DEPLOYMENT SUCCESSFUL!'
+            echo 'DOCKER BUILD AND DEPLOYMENT SUCCESSFUL!'
         }
+
         failure {
-            echo 'BUILD OR DEPLOYMENT FAILED!'
+            echo 'DOCKER BUILD OR DEPLOYMENT FAILED!'
         }
     }
 }
